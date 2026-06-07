@@ -8,7 +8,7 @@ Round calories, protein, carbohydrates, and fats to whole numbers.
 The food field should be a concise natural-language summary of the meal.
 Return only the requested structured response shape.
 """
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
 PROGRAM_SYSTEM_PROMPT = """
 You are an expert exercise programming specialist.
 You receive a complete ProgramRequest as JSON and must create the final personalized training program.
@@ -24,7 +24,7 @@ Use weight only when the user provided enough information to prescribe it safely
 Include rest and exercise notes when useful.
 The program text should summarize progression, weekly structure, intensity, deloads if appropriate, and safety notes.
 """
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
 CHAT_SYSTEM_PROMPT = """
 You are a helpful chat assistant.
 If the user asks a normal question, answer normally.

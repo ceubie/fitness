@@ -16,7 +16,6 @@ class DietResponse(BaseModel):
     meal: str
     food: str
 
-#==========================================================================
 
 class Exercise(BaseModel):
     name: str
@@ -56,9 +55,7 @@ class ProgramResponse(BaseModel):
     notes: str | None = None
 
 
-#==========================================================================
-
-class Set_(BaseModel):
+class SetEntry(BaseModel):
     number: int
     reps: int
     load: int
@@ -66,22 +63,18 @@ class Set_(BaseModel):
     rpe: int = Field(ge=1, le=10)
     notes: str
 
+
 class Movement(BaseModel):
     name: str
-    sets: list[Set_]
+    sets: list[SetEntry]
     notes: str
+
 
 class WorkoutEntry(BaseModel):
     program: str
-    day: int
     week: int
+    day_number: int
     exercises: list[Movement]
     notes: str
-    day: str
+    date: str
     time: str
-
-#==========================================================================
-
-#class ProgramModification(BaseModel)
-
-#class CompletedProgram
