@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fitness Agent</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 760px;
+        margin: 48px auto;
+        padding: 0 20px;
+        background: #f7f7fb;
+        color: #1f2937;
+      }
+
+      main {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgb(15 23 42 / 8%);
+      }
+
+      label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        box-sizing: border-box;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        font: inherit;
+        resize: vertical;
+      }
+
+      button {
+        margin-top: 12px;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 10px;
+        background: #2563eb;
+        color: #ffffff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+
+      #response {
+        margin-top: 20px;
+        padding: 16px;
+        min-height: 48px;
+        background: #f3f4f6;
+        border-radius: 10px;
+      }
+
+      #response :first-child {
+        margin-top: 0;
+      }
+
+      #response :last-child {
+        margin-bottom: 0;
+      }
+
+      #response pre {
+        overflow-x: auto;
+        padding: 12px;
+        background: #111827;
+        color: #f9fafb;
+        border-radius: 8px;
+      }
+
+      #response code {
+        padding: 2px 4px;
+        background: #e5e7eb;
+        border-radius: 4px;
+      }
+
+      #response pre code {
+        padding: 0;
+        background: transparent;
+      }
+
+      #response blockquote {
+        margin-left: 0;
+        padding-left: 12px;
+        border-left: 4px solid #d1d5db;
+        color: #4b5563;
+      }
+
+      #response table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      #response th,
+      #response td {
+        padding: 8px;
+        border: 1px solid #d1d5db;
+      }
+
+      .stored-data {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .stored-panel {
+        padding: 16px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+      }
+
+      .stored-panel h2 {
+        margin: 0 0 10px;
+        font-size: 1.1rem;
+      }
+
+      .stored-panel button {
+        margin: 0 0 12px;
+        padding: 8px 12px;
+        font-size: 0.95rem;
+      }
+
+      .stored-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .stored-card {
+        padding: 12px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+      }
+
+      .stored-card h3 {
+        margin: 0 0 6px;
+        font-size: 1rem;
+      }
+
+      .stored-card p {
+        margin: 4px 0;
+      }
+
+      .stored-card ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+
+      .muted {
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Fitness Agent Chat</h1>
+      <form id="chat-form">
+        <label for="user-message">Message</label>
+        <textarea id="user-message" name="user_message" placeholder="Ask something..." required></textarea>
+        <button type="submit">Send</button>
+      </form>
+      <section id="response" aria-live="polite"></section>
+
+      <section class="stored-data" aria-label="Stored session data">
+        <div class="stored-panel">
+          <h2>Meals</h2>
+          <button type="button" id="refresh-meals">Refresh Meals</button>
+          <div id="meals-list" class="stored-list">
+            <p class="muted">No meals loaded.</p>
+          </div>
+        </div>
+
+        <div class="stored-panel">
+          <h2>Next Workout</h2>
+          <button type="button" id="refresh-next-workout">Refresh Next Workout</button>
+          <div id="exercise-list" class="stored-list">
+            <p class="muted">N/A</p>
+          </div>
+        </div>
+
+        <div class="stored-panel">
+          <h2>Programs</h2>
+          <button type="button" id="refresh-programs">Refresh Programs</button>
+          <div id="programs-list" class="stored-list">
+            <p class="muted">No programs loaded.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <script>
+      const form = document.querySelector("#chat-form");
+      const messageInput = document.querySelector("#user-message");
+      const responseBox = document.querySelector("#response");
+      const submitButton = form.querySelector("button");
+      const refreshMealsButton = document.querySelector("#refresh-meals");
+      const refreshProgramsButton = document.querySelector("#refresh-programs");
+      const refreshNextWorkoutButton = document.querySelector("#refresh-next-workout");
+      const mealsList = document.querySelector("#meals-list");
+      const programsList = document.querySelector("#programs-list");
+      const nextWorkoutList = document.querySelector("#exercise-list");
+      const apiHost = "127.0.0.1";
+      const apiBase = window.location.port === "5000"
+        ? ""
+        : `http://${apiHost}:5000`;
+      const chatEndpoint = `${apiBase}/chat`;
+      const mealsEndpoint = `${apiBase}/meals`;
+      const programsEndpoint = `${apiBase}/programs`;
+      const nextWorkoutEndpoint = `${apiBase}/next-workout`;
+      const sessionStorageKey = "flaskChatSessionId";
+      let sessionId = localStorage.getItem(sessionStorageKey);
+
+      if (window.marked) {
+        marked.setOptions({
+          breaks: true,
+          gfm: true,
+        });
+      }
+
+      function renderMarkdown(markdown) {
+        if (!window.marked || !window.DOMPurify) {
+          responseBox.textContent = markdown;
+          return;
+        }
+
+        const html = marked.parse(markdown);
+        responseBox.innerHTML = DOMPurify.sanitize(html);
+      }
+
+      function endpointWithSession(endpoint) {
+        const url = new URL(endpoint, window.location.href);
+        if (sessionId) {
+          url.searchParams.set("session_id", sessionId);
+        }
+        return url.toString();
+      }
+
+      async function fetchJson(endpoint) {
+        const response = await fetch(endpointWithSession(endpoint));
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed (${response.status})`);
+        }
+
+        return data;
+      }
+
+      function replaceWithEmptyState(container, message) {
+        container.replaceChildren();
+        const emptyState = document.createElement("p");
+        emptyState.className = "muted";
+        emptyState.textContent = message;
+        container.append(emptyState);
+      }
+
+      function renderMeals(meals) {
+        mealsList.replaceChildren();
+
+        if (!sessionId) {
+          replaceWithEmptyState(mealsList, "Send a chat message first to start a session.");
+          return;
+        }
+
+        if (!meals.length) {
+          replaceWithEmptyState(mealsList, "No meals stored for this session.");
+          return;
+        }
+
+        meals.forEach((mealRecord) => {
+          const response = mealRecord.response || {};
+          const request = mealRecord.request || {};
+          const card = document.createElement("article");
+          const title = document.createElement("h3");
+          const summary = document.createElement("p");
+          const macros = document.createElement("p");
+          const timestamp = document.createElement("p");
+
+          card.className = "stored-card";
+          title.textContent = response.meal || request.meal || "Meal";
+          summary.textContent = response.food || "No meal summary returned.";
+          macros.textContent = `${response.calories ?? 0} cal · ${response.protein ?? 0}g protein · ${response.carbohydrates ?? 0}g carbs · ${response.fats ?? 0}g fat`;
+          timestamp.className = "muted";
+          timestamp.textContent = mealRecord.created_at || "";
+
+          card.append(title, summary, macros, timestamp);
+          mealsList.append(card);
+        });
+      }
+
+      function renderPrograms(programs) {
+        programsList.replaceChildren();
+
+        if (!sessionId) {
+          replaceWithEmptyState(programsList, "Send a chat message first to start a session.");
+          return;
+        }
+
+        if (!programs.length) {
+          replaceWithEmptyState(programsList, "No programs stored for this session.");
+          return;
+        }
+
+        programs.forEach((programRecord) => {
+          const response = programRecord.response || {};
+          const card = document.createElement("article");
+          const title = document.createElement("h3");
+          const summary = document.createElement("p");
+          const meta = document.createElement("p");
+          const workouts = document.createElement("ul");
+          const timestamp = document.createElement("p");
+
+          card.className = "stored-card";
+          title.textContent = response.title || "Training Program";
+          summary.textContent = response.program || "No program summary returned.";
+          meta.textContent = `${response.weeks ?? "?"} weeks · ${response.days_per_week ?? "?"} days/week · ${response.split || "unspecified split"}`;
+          timestamp.className = "muted";
+          timestamp.textContent = programRecord.created_at || "";
+
+          (response.workouts || []).forEach((workout) => {
+            const item = document.createElement("li");
+            item.textContent = `${workout.day}: ${workout.focus} (${(workout.exercises || []).length} exercises)`;
+            workouts.append(item);
+          });
+
+          card.append(title, summary, meta, workouts, timestamp);
+          programsList.append(card);
+        });
+      }
+
+      function renderNextWorkout(data) {
+        nextWorkoutList.replaceChildren();
+
+        if (!sessionId) {
+          replaceWithEmptyState(nextWorkoutList, "Send a chat message first to start a session.");
+          return;
+        }
+
+        if (!data.next_workout) {
+          replaceWithEmptyState(nextWorkoutList, data.message || "No next workout available.");
+          return;
+        }
+
+        const workout = data.next_workout;
+        const card = document.createElement("article");
+        const title = document.createElement("h3");
+        const program = document.createElement("p");
+        const focus = document.createElement("p");
+        const exercises = document.createElement("ul");
+
+        card.className = "stored-card";
+        title.textContent = workout.day || "Next Workout";
+        program.className = "muted";
+        program.textContent = data.program_title ? `Program: ${data.program_title}` : "Latest program";
+        focus.textContent = `Focus: ${workout.focus || "Unspecified"}`;
+
+        (workout.exercises || []).forEach((exercise) => {
+          const item = document.createElement("li");
+          const details = [
+            exercise.sets ? `${exercise.sets} sets` : null,
+            exercise.reps ? `${exercise.reps} reps` : null,
+            exercise.weight ? `@ ${exercise.weight}` : null,
+            exercise.rest ? `rest ${exercise.rest}` : null,
+          ].filter(Boolean).join(" · ");
+
+          item.textContent = details
+            ? `${exercise.name}: ${details}`
+            : exercise.name || "Unnamed exercise";
+
+          if (exercise.notes) {
+            item.title = exercise.notes;
+          }
+
+          exercises.append(item);
+        });
+
+        if (!exercises.children.length) {
+          const item = document.createElement("li");
+          item.textContent = "No exercises returned for this workout.";
+          exercises.append(item);
+        }
+
+        card.append(title, program, focus, exercises);
+        nextWorkoutList.append(card);
+      }
+
+      async function refreshMeals() {
+        try {
+          const data = await fetchJson(mealsEndpoint);
+          renderMeals(data.meals || []);
+        } catch (error) {
+          replaceWithEmptyState(mealsList, error.message);
+        }
+      }
+
+      async function refreshPrograms() {
+        try {
+          const data = await fetchJson(programsEndpoint);
+          renderPrograms(data.programs || []);
+        } catch (error) {
+          replaceWithEmptyState(programsList, error.message);
+        }
+      }
+
+      async function refreshNextWorkout() {
+        try {
+          const data = await fetchJson(nextWorkoutEndpoint);
+          renderNextWorkout(data);
+        } catch (error) {
+          replaceWithEmptyState(nextWorkoutList, error.message);
+        }
+      }
+
+      async function refreshStoredData() {
+        await Promise.all([
+          refreshMeals(),
+          refreshPrograms(),
+          refreshNextWorkout(),
+        ]);
+      }
+
+      refreshMealsButton.addEventListener("click", refreshMeals);
+      refreshProgramsButton.addEventListener("click", refreshPrograms);
+      refreshNextWorkoutButton.addEventListener("click", refreshNextWorkout);
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const userMessage = messageInput.value.trim();
+        if (!userMessage) {
+          return;
+        }
+
+        submitButton.disabled = true;
+        responseBox.textContent = "Thinking...";
+
+        try {
+          const response = await fetch(chatEndpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              user_message: userMessage,
+              session_id: sessionId,
+            }),
+          });
+
+          const responseText = await response.text();
+          let data = {};
+
+          if (responseText) {
+            try {
+              data = JSON.parse(responseText);
+            } catch {
+              throw new Error(`Server returned a non-JSON response (${response.status})`);
+            }
+          }
+
+          if (!response.ok) {
+            throw new Error(data.error || "Chat request failed");
+          }
+
+          if (data.session_id) {
+            sessionId = data.session_id;
+            localStorage.setItem(sessionStorageKey, sessionId);
+          }
+
+          renderMarkdown(data.message || "No response message returned.");
+          await refreshStoredData();
+        } catch (error) {
+          responseBox.textContent = `${error.message}\n\nTried: ${chatEndpoint}\nMake sure Flask is running at http://${apiHost}:5000/`;
+        } finally {
+          submitButton.disabled = false;
+        }
+      });
+
+      refreshStoredData();
+    </script>
+  </body>
+</html>
